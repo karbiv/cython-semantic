@@ -418,7 +418,7 @@ expr_stmt
     (if (and $2 (stringp $1) (string-match "^\\(\\sw\\|\\s_\\|\\.\\)+$" $1))
         ;; If this is an assignment statement and left side is a symbol,
         ;; then generate a 'variable token, else return 'code token.
-        (VARIABLE-TAG $1 nil nil :assign t)
+	(VARIABLE-TAG $1 nil nil)
       (CODE-TAG $1 nil))
   | testlist_star_expr expr_stmt_rhs_assign-list
     (if (and $2 (stringp $1) (string-match "^\\(\\sw\\|\\s_\\|\\.\\)+$" $1))
@@ -951,7 +951,7 @@ arguments
 
 classdef
   : CLASS NAME arglist-opt COLON suite
-    (TYPE-TAG $2 nil
+    (TYPE-TAG $2 $1
               $5                ;; Members
               (cons $3 nil)     ;; (SUPERCLASSES . INTERFACES)
               :def "class")
