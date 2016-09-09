@@ -150,33 +150,6 @@ reached start of buffer."
       (if accum (mapconcat 'identity accum ".")))))
 
 ;; For functions that are named identically to a language reserved keyword,
-;; for example 'def property():'.
-;; (defmacro define-cy-keyword-analyzer (name)
-;;   `(define-lex-analyzer name "Skips keyword lexer if previous token is DEF"
-;;      (if (not (eq 'DEF (caar semantic-lex-token-stream)))
-;; 	 ,@cython-wy--<keyword>-keyword-analyzer)))
-
-;; (define-cy-keyword-analyzer cy--<keyword>-analyzer)
-
-;; (define-lex-regex-type-analyzer cy--<cdef-extern>-regexp-analyzer
-;;   "regexp analyzer for 'cdef extern [from]' tokens."
-;;   "\\(\\(?:cdef[[:space:]]+extern\\(?:[[:space:]]+from\\)?[[:space:]]+.+\\)\\)+$"
-;;   nil
-;;   'CDEF-EXTERN)
-
-;; (define-lex-regex-type-analyzer cy--<cdef-api>-regexp-analyzer
-;;   "regexp analyzer for 'cdef [public] api' tokens."
-;;   "\\(\\(?:cdef[[:space:]]?\\(?:public\\)?[[:space:]]+api.+\\)\\)+$"
-;;   nil
-;;   'CDEF-API)
-
-;; (define-lex-regex-type-analyzer cy--<ctypedef>-regexp-analyzer
-;;   "regexp analyzer for <ctypedef> tokens."
-;;   "\\(ctypedef[[:space:]]+.+\\)$"
-;;   nil
-;;   'CTYPEDEF)
-
-;; For functions that are named identically to a language reserved keyword,
 ;; for example 'def property()', checks previous token in the stream,
 ;; if it's DEF, then the current one can be only a symbol, so skip keyword scan
 (define-lex-analyzer cython-<keyword>-analyzer "Skips keyword lexer if previous token is DEF"
@@ -188,6 +161,31 @@ reached start of buffer."
        (semantic-lex-push-token
 	(semantic-lex-token key (match-beginning 0) (match-end 0)))))))
 
+;; overriden to fix a bug in return ("\\", "/") 
+(defconst wisent-python-string-re
+  (rx
+   (opt (any "uU")) (opt (any "rR"))
+   (or
+    ;; Triple-quoted string using apostrophes
+    (: "'''" (zero-or-more (or "\\'"
+                               (not (any "'"))
+                               (: (repeat 1 2 "'") (not (any "'")))))
+       "'''")
+    ;; String using apostrophes
+    (: "'" (zero-or-more (or (: (not (any "\\")) "\\'")
+                             (not (any "'"))))
+       "'")
+    ;; Triple-quoted string using quotation marks.
+    (: "\"\"\"" (zero-or-more (or "\\\""
+                                  (not (any "\""))
+                                  (: (repeat 1 2 "\"") (not (any "\"")))))
+       "\"\"\"")
+    ;; String using quotation marks.
+    (: "\"" (zero-or-more (or (: (not (any "\\\"")) "\\\"")
+                              (not (any "\""))))
+       "\"")))
+  "Regexp matching a complete Python string.")
+
 (define-lex cython-lex
   "Cython lexer"
   ;; Must analyze beginning of line first to handle indentation.
@@ -196,12 +194,6 @@ reached start of buffer."
   ;; Must analyze string before symbol to handle string prefix.
   wisent-python-lex-string
   cython-wy--<number>-regexp-analyzer
-  
-  ;; Eagerly scan C declarations
-  ;; cy--<cdef-extern>-regexp-analyzer
-  ;; cy--<ctypedef>-regexp-analyzer
-  ;; cy--<cdef-api>-regexp-analyzer
-  
   cython-<keyword>-analyzer
   cython-wy--<symbol>-regexp-analyzer
   cython-wy--<block>-block-analyzer
