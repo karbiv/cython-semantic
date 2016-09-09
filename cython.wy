@@ -1102,13 +1102,6 @@ cimport_from
     (INCLUDE-TAG $2 nil :def "cimport")
   ;
 
-;; cdef_public_api
-;;   : CDEF-API NEWLINE INDENT_BLOCK
-;;     (parse-cdef-api $1 $3)
-;;   | CDEF-API NEWLINE
-;;     (parse-cdef-api $1)
-;;   ;
-
 cdef_enum
   : CDEF ENUM NAME COLON NEWLINE INDENT_BLOCK
     ()

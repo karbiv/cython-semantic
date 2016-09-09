@@ -3,7 +3,7 @@
 ;; Copyright (C) 2016 alex
 
 ;; Author: alex <alex@server.alex.local>
-;; Created: 2016-07-16 12:24:14+0300
+;; Created: 2016-09-08 02:34:27+0300
 ;; Keywords: syntax
 ;; X-RCS: $Id$
 
@@ -360,7 +360,7 @@
 		  (stringp $1)
 		  (string-match "^\\(\\sw\\|\\s_\\|\\.\\)+$" $1))
 	     (wisent-raw-tag
-	      (semantic-tag-new-variable $1 nil nil :assign t))
+	      (semantic-tag-new-variable $1 nil nil))
 	   (wisent-raw-tag
 	    (semantic-tag-new-code $1 nil))))
 	((testlist_star_expr expr_stmt_rhs_assign-list)
@@ -720,7 +720,7 @@
        (classdef
 	((CLASS NAME arglist-opt COLON suite)
 	 (wisent-raw-tag
-	  (semantic-tag-new-type $2 nil $5
+	  (semantic-tag-new-type $2 $1 $5
 				 (cons $3 nil)
 				 :def "class"))))
        (arglist
