@@ -5,7 +5,6 @@
   (require 'rx))
 (require 'semantic/wisent/python)
 (require 'cython-wy)
-(require 'cython-indent)
 (require 'cython-semantic-features)
 
 (add-to-list 'auto-mode-alist '("\\.pyx\\'" . cython-semantic-mode))
@@ -16,12 +15,56 @@
 (defvar cython-buffer nil
   "Variable pointing to the cython buffer which was compiled.")
 
+;; used automatically by `define-derived-mode
 (defvar cython-semantic-mode-map
   (let ((map (make-sparse-keymap)))
     ;; Will inherit from `python-mode-map' thanks to define-derived-mode.
     (define-key map "\C-c\C-c" 'cython-compile)
+    (define-key map [remap forward-sentence] 'cython-nav-forward-block)
     map)
   "Keymap used in `cython-mode'.")
+
+(eval-when-compile
+  (defconst cython-rx-constituents
+    `((block-start . ,(rx symbol-start
+                          (or "def" "class" "cdef" "cpdef" "ctypedef" "if" "elif"
+                              "else" "try" "except" "finally" "for" "while" "with")
+                          symbol-end))
+      (defun       . ,(rx symbol-start (or "def" "class") symbol-end)))
+    "Additional Cython specific sexps for `cython-rx'")
+
+  (defmacro cython-rx (&rest regexps)
+    "Cython mode specialized rx macro."
+    (let ((rx-constituents (append cython-rx-constituents rx-constituents)))
+      (cond ((cdr regexps) (rx-to-string `(and ,@regexps) t))
+            (t (rx-to-string (car regexps) t))))))
+
+;; redefine
+;; used in indenting
+(defun python-nav-beginning-of-block ()
+  "Move to start of current block."
+  (interactive "^")
+  (let ((starting-pos (point)))
+    (if (progn
+          (python-nav-beginning-of-statement)
+          ;; Cython's block-start
+          (looking-at (cython-rx block-start)))
+        (point-marker)
+      ;; Go to first line beginning a statement
+      (while (and (not (bobp))
+                  (or (and (python-nav-beginning-of-statement) nil)
+                      (python-info-current-line-comment-p)
+                      (python-info-current-line-empty-p)))
+        (forward-line -1))
+      (let ((block-matching-indent
+             (- (current-indentation) python-indent-offset)))
+        (while
+            (and (python-nav-backward-block)
+                 (> (current-indentation) block-matching-indent)))
+        (if (and (looking-at (cython-rx block-start))
+                 (= (current-indentation) block-matching-indent))
+            (point-marker)
+          (and (goto-char starting-pos) nil))))))
 
 (defun cython-compile ()
   "Compile the file via Cython."
@@ -268,6 +311,39 @@ In cython, this can happen with `import' and `cdef' statements."
 				      (cdef_extern . "Extern")))
   )
 
+(defun python-nav-backward-block (&optional arg)
+  "Move backward to previous block of code.
+With ARG, repeat.  See `cython-nav-forward-block'."
+  (interactive "^p")
+  (or arg (setq arg 1))
+  (cython-nav-forward-block (- arg)))
+
+(defun cython-nav-forward-block (&optional arg)
+  "Move forward to next block of code.
+With ARG, repeat.  With negative argument, move ARG times
+backward to previous block."
+  (interactive "^p")
+  (or arg (setq arg 1))
+  (let ((block-start-regexp
+         (cython-rx line-start (* whitespace) block-start))
+        (starting-pos (point)))
+    (while (> arg 0)
+      (python-nav-end-of-statement)
+      (while (and
+              (re-search-forward block-start-regexp nil t)
+              (python-syntax-context-type)))
+      (setq arg (1- arg)))
+    (while (< arg 0)
+      (python-nav-beginning-of-statement)
+      (while (and
+              (re-search-backward block-start-regexp nil t)
+              (python-syntax-context-type)))
+      (setq arg (1+ arg)))
+    (python-nav-beginning-of-statement)
+    (if (not (looking-at (cython-rx block-start)))
+        (and (goto-char starting-pos) nil)
+      (and (not (= (point) starting-pos)) (point-marker)))))
+
 ;; Init Jedi.el package
 (defun cython-check-jedi-package ()
   (when (symbol-function 'jedi:setup)
@@ -303,10 +379,6 @@ In cython, this can happen with `import' and `cdef' statements."
   (cython-check-jedi-package)
 
   ;; cython-semantic-features
-  (cython-if-global-semanticdb-minor-mode)
-
-  ;; Project management
-  ;; (when projectile-mode (require 'cython-projectile))
-  )
+  (cython-if-global-semanticdb-minor-mode))
 
 (provide 'cython-semantic-mode)
