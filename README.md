@@ -1,2 +1,2 @@
 # cython-semantic
-Emacs mode for Cython with Semantic support
+Emacs mode for Cython/Python with Semantic support

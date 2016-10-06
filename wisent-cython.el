@@ -51,7 +51,31 @@ TAG SUITE"
     (semantic-tag-put-attribute tag :special-flag t))
    ((semantic-python-private-p tag)
     (semantic-tag-put-attribute tag :protection "private")))
+  
+  ;; Augment with inner tags
+  (dolist (inner-tag suite)
+    ;; Set tag's parent name(its container tag)
+    (when (member (semantic-tag-class inner-tag) '(function type))
+	  (semantic-tag-put-attribute inner-tag :parent (semantic-tag-name tag)))
 
+    ;; Find assignments to instance variables and add
+    ;; corresponding variable tags to the list of members.
+    ;; (let ((self (semantic-tag-name
+    ;;              (car (semantic-tag-function-arguments member-tag)))))
+    ;;   ;; Peek assignment statements in the function's code
+    ;;   (dolist (statement (semantic-tag-get-attribute member-tag :suite))
+    ;;     (when (cython-instance-variable-p statement self)
+    ;;       (let ((parts (split-string (semantic-tag-name statement) "\\.")))
+    ;;         ;; Only 1 dot: 'self.var ='
+    ;;         (when (equal 2 (length parts))
+    ;;           (let ((variable (semantic-tag-clone statement (cadr parts)))
+    ;;                 (members (semantic-tag-get-attribute tag :members)))
+    ;;             (when (semantic-python-private-p variable)
+    ;;               (semantic-tag-put-attribute variable :protection "private"))
+    ;;             ;; Append to members of the class
+    ;;             (setcdr (last members) (list variable))))))))
+	)
+  
   ;; TODO
   ;; + check for operator overloading
   tag)

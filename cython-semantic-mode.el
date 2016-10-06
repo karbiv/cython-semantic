@@ -3,6 +3,7 @@
 (require 'python) ; Built-in python mode
 (eval-when-compile
   (require 'rx))
+(require 'cython-redefines)
 (require 'semantic/wisent/python)
 (require 'cython-wy)
 (require 'cython-semantic-features)
@@ -20,51 +21,8 @@
   (let ((map (make-sparse-keymap)))
     ;; Will inherit from `python-mode-map' thanks to define-derived-mode.
     (define-key map "\C-c\C-c" 'cython-compile)
-    (define-key map [remap forward-sentence] 'cython-nav-forward-block)
     map)
   "Keymap used in `cython-mode'.")
-
-(eval-when-compile
-  (defconst cython-rx-constituents
-    `((block-start . ,(rx symbol-start
-                          (or "def" "class" "cdef" "cpdef" "ctypedef" "if" "elif"
-                              "else" "try" "except" "finally" "for" "while" "with")
-                          symbol-end))
-      (defun       . ,(rx symbol-start (or "def" "class") symbol-end)))
-    "Additional Cython specific sexps for `cython-rx'")
-
-  (defmacro cython-rx (&rest regexps)
-    "Cython mode specialized rx macro."
-    (let ((rx-constituents (append cython-rx-constituents rx-constituents)))
-      (cond ((cdr regexps) (rx-to-string `(and ,@regexps) t))
-            (t (rx-to-string (car regexps) t))))))
-
-;; redefine
-;; used in indenting
-(defun python-nav-beginning-of-block ()
-  "Move to start of current block."
-  (interactive "^")
-  (let ((starting-pos (point)))
-    (if (progn
-          (python-nav-beginning-of-statement)
-          ;; Cython's block-start
-          (looking-at (cython-rx block-start)))
-        (point-marker)
-      ;; Go to first line beginning a statement
-      (while (and (not (bobp))
-                  (or (and (python-nav-beginning-of-statement) nil)
-                      (python-info-current-line-comment-p)
-                      (python-info-current-line-empty-p)))
-        (forward-line -1))
-      (let ((block-matching-indent
-             (- (current-indentation) python-indent-offset)))
-        (while
-            (and (python-nav-backward-block)
-                 (> (current-indentation) block-matching-indent)))
-        (if (and (looking-at (cython-rx block-start))
-                 (= (current-indentation) block-matching-indent))
-            (point-marker)
-          (and (goto-char starting-pos) nil))))))
 
 (defun cython-compile ()
   "Compile the file via Cython."
@@ -80,48 +38,6 @@
   "Called when Cython compilation finishes."
   ;; XXX could annotate source here
   )
-
-(defun cython-comment-line-p ()
-  "Return non-nil if current line is a comment."
-  (save-excursion
-    (back-to-indentation)
-    (eq ?# (char-after (point)))))
-
-(defun cython-in-string/comment ()
-  "Return non-nil if point is in a comment or string."
-  (nth 8 (syntax-ppss)))
-
-(defun cython-beginning-of-defun ()
-  "`beginning-of-defun-function' for Cython.
-Finds beginning of innermost nested class or method definition.
-Returns the name of the definition found at the end, or nil if
-reached start of buffer."
-  (let ((ci (current-indentation))
-        (def-re (rx line-start (0+ space) (or "def" "cdef" "cpdef" "class") (1+ space)
-                    (group (1+ (or word (syntax symbol))))))
-        found lep) ;; def-line
-    (if (cython-comment-line-p)
-        (setq ci most-positive-fixnum))
-    (while (and (not (bobp)) (not found))
-      ;; Treat bol at beginning of function as outside function so
-      ;; that successive C-M-a makes progress backwards.
-      ;;(setq def-line (looking-at def-re))
-      (unless (bolp) (end-of-line))
-      (setq lep (line-end-position))
-      (if (and (re-search-backward def-re nil 'move)
-               ;; Must be less indented or matching top level, or
-               ;; equally indented if we started on a definition line.
-               (let ((in (current-indentation)))
-                 (or (and (zerop ci) (zerop in))
-                     (= lep (line-end-position)) ; on initial line
-                     ;; Not sure why it was like this -- fails in case of
-                     ;; last internal function followed by first
-                     ;; non-def statement of the main body.
-                     ;;(and def-line (= in ci))
-                     (= in ci)
-                     (< in ci)))
-               (not (cython-in-string/comment)))
-          (setq found t)))))
 
 (defvar cython-font-lock-keywords
   `(;; ctypedef statement: "ctypedef (...type... alias)?"
@@ -174,23 +90,6 @@ reached start of buffer."
     ("\\_<property[ \t]+\\([a-zA-Z_]+[a-zA-Z0-9_]*\\)"
      1 font-lock-function-name-face))
   "Additional font lock keywords for Cython mode.")
-
-(defun cython-current-defun ()
-  "`add-log-current-defun-function' for Cython."
-  (save-excursion
-    ;; Move up the tree of nested `class' and `def' blocks until we
-    ;; get to zero indentation, accumulating the defined names.
-    (let ((start t)
-          accum)
-      (while (or start (> (current-indentation) 0))
-        (setq start nil)
-        (cython-beginning-of-block)
-        (end-of-line)
-        (beginning-of-defun)
-        (if (looking-at (rx (0+ space) (or "def" "cdef" "cpdef" "class") (1+ space)
-                            (group (1+ (or word (syntax symbol))))))
-            (push (match-string 1) accum)))
-      (if accum (mapconcat 'identity accum ".")))))
 
 ;; For functions that are named identically to a language reserved keyword,
 ;; for example 'def property()', checks previous token in the stream,
@@ -246,8 +145,7 @@ reached start of buffer."
   semantic-lex-ignore-whitespace
   semantic-lex-ignore-comments
   ;; Signal error on unhandled syntax.
-  semantic-lex-default-action
-  )
+  semantic-lex-default-action)
 
 (define-mode-local-override semantic-lex cython-semantic-mode
   (start end &optional depth length)
@@ -277,8 +175,7 @@ In cython, this can happen with `import' and `cdef' statements."
      ((and (eq class 'include) (listp elts))
       (dolist (E elts)
 	(setq expand (cons (semantic-tag-clone tag E) expand)))
-      (setq expand (nreverse expand)))
-     )))
+      (setq expand (nreverse expand))))))
 
 ;;;###autoload
 (defun wisent-cython-default-setup ()
@@ -311,49 +208,66 @@ In cython, this can happen with `import' and `cdef' statements."
 				      (cdef_extern . "Extern")))
   )
 
-(defun python-nav-backward-block (&optional arg)
-  "Move backward to previous block of code.
-With ARG, repeat.  See `cython-nav-forward-block'."
-  (interactive "^p")
-  (or arg (setq arg 1))
-  (cython-nav-forward-block (- arg)))
+(defun cython-end-of-defun ()
+  (let ((curr-tag (semantic-current-tag)))
+    (when curr-tag
+      (goto-char (- (semantic-tag-end curr-tag) 2)))))
 
-(defun cython-nav-forward-block (&optional arg)
-  "Move forward to next block of code.
-With ARG, repeat.  With negative argument, move ARG times
-backward to previous block."
-  (interactive "^p")
-  (or arg (setq arg 1))
-  (let ((block-start-regexp
-         (cython-rx line-start (* whitespace) block-start))
-        (starting-pos (point)))
-    (while (> arg 0)
-      (python-nav-end-of-statement)
-      (while (and
-              (re-search-forward block-start-regexp nil t)
-              (python-syntax-context-type)))
-      (setq arg (1- arg)))
-    (while (< arg 0)
-      (python-nav-beginning-of-statement)
-      (while (and
-              (re-search-backward block-start-regexp nil t)
-              (python-syntax-context-type)))
-      (setq arg (1+ arg)))
-    (python-nav-beginning-of-statement)
-    (if (not (looking-at (cython-rx block-start)))
-        (and (goto-char starting-pos) nil)
-      (and (not (= (point) starting-pos)) (point-marker)))))
+;; instead of (define-mode-local-override semantic-up-context cython (&optional point bounds-type)
+(defun cython-up-context ()
+  "Move point up one context from POINT.
+Return non-nil if there are no more context levels.
+This will find a tag of `function' or `type'
+class and make sure non-nil is returned if you cannot
+go up past the bounds of that tag."
+  (let ((tags (semantic-find-tag-by-overlay)))
+    (if tags (setq tags (nreverse tags))
+      ;; No overlays found, then find previous from point
+      (setq tags (nreverse (semantic-find-tag-by-overlay
+			    (- (semantic-overlay-previous-change (point)) 1)))))
+    (while (and tags (not (member (semantic-tag-class (car tags)) '(function type))))
+      (setq tags (cdr tags)))
+    (let ((curr-tag (car tags))
+	  (parent-name (semantic-tag-named-parent (car tags)))) 
+      (if (and (= (point) (semantic-tag-start curr-tag))
+	       parent-name
+	       (eq this-command 'beginning-of-defun))
+	  (progn
+	    (while (and tags (not (equal parent-name (caar tags))))
+	      (setq tags (cdr tags)))
+	    (goto-char (semantic-tag-start (car tags))))
+	(and (not (= (point) (semantic-tag-start curr-tag)))
+	     (eq this-command 'beginning-of-defun))
+	(goto-char (semantic-tag-start curr-tag)))
+      ;; Return non-nil if there are no more context levels.
+      (if (semantic-tag-named-parent (car tags)) nil t))))
 
-;; Init Jedi.el package
+;; to create overlays for inner defs and classes
+(define-mode-local-override semantic-tag-components cython-semantic-mode (tag)
+  "Return a list of components for TAG.
+Perform the described task in `semantic-tag-components'."
+  (cond ((semantic-tag-of-class-p tag 'type)
+		 (semantic-tag-type-members tag))
+		((semantic-tag-of-class-p tag 'function)
+		 (let ((all-tags (semantic-tag-function-arguments tag))
+			   (suite (semantic-tag-get-attribute tag :suite)))
+		   (while suite
+			 (when (and (semantic-tag-p (car suite))
+						(member (semantic-tag-class (car suite)) '(function type)))
+			   (setq all-tags (cons (car suite) all-tags)))
+			 (setq suite (cdr suite)))
+		   all-tags))
+		(t nil)))
+
 (defun cython-check-jedi-package ()
+  "Init Jedi.el package"
   (when (symbol-function 'jedi:setup)
     (jedi:setup)
     ;; Unhide Semantic's 'C-c ,' key prefix,
     ;; default 'C-c ,,' reparses a buffer
     (define-key jedi-mode-map (kbd "C-c ,") nil)
     ;; Jedi uses 'C-c ,' for `jedi:goto-definition-pop-marker', redefine
-    (define-key jedi-mode-map (kbd "C-c p") 'jedi:goto-definition-pop-marker)
-    ))
+    (define-key jedi-mode-map (kbd "C-c p") 'jedi:goto-definition-pop-marker)))
 
 ;;;###autoload
 (define-derived-mode cython-semantic-mode python-mode "Cython"
@@ -363,8 +277,8 @@ backward to previous block."
   (semantic-mode 1)
   (set (make-local-variable 'tab-width) 4)
   (font-lock-add-keywords nil cython-font-lock-keywords)
-  (set (make-local-variable 'beginning-of-defun-function)
-       #'cython-beginning-of-defun)
+  (set (make-local-variable 'beginning-of-defun-function) #'cython-up-context)
+  (set (make-local-variable 'end-of-defun-function) #'cython-end-of-defun)
 
   (add-to-list 'semantic-new-buffer-setup-functions
 	       (cons 'cython-semantic-mode 'wisent-cython-default-setup))
