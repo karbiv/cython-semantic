@@ -163,20 +163,6 @@ what remains in the `wisent-python-indent-stack'."
       (semantic-lex-push-token (semantic-lex-token 'DEDENT end end)))
     (nconc stream (nreverse semantic-lex-token-stream))))
 
-(defun semantic-cython-expand-tag (tag)
-  "Expand compound declarations found in TAG into separate tags.
-TAG contains compound declaration if the NAME part of the tag is a list.
-In cython, this can happen with `import' and `cdef' statements."
-  ;;TODO: add 'cdef' processing, 'cdef tuple item, val ='
-  (let ((class (semantic-tag-class tag))
-	(elts (semantic-tag-name tag))
-	(expand nil))
-    (cond
-     ((and (eq class 'include) (listp elts))
-      (dolist (E elts)
-	(setq expand (cons (semantic-tag-clone tag E) expand)))
-      (setq expand (nreverse expand))))))
-
 ;;;###autoload
 (defun wisent-cython-default-setup ()
   "Setup buffer for parse."
@@ -190,7 +176,7 @@ In cython, this can happen with `import' and `cdef' statements."
    semantic-type-relation-separator-character '(".")
    semantic-command-separation-character ";"
    ;; Parsing of some one line compound statements
-   semantic-tag-expand-function 'semantic-cython-expand-tag
+   semantic-tag-expand-function 'cython-expand-tags
 
    ;; Semantic to take over from the one provided by python.
    ;; The python one, if it uses the senator advice, will hang

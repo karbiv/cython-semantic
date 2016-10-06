@@ -6,6 +6,35 @@
 
 (require 'semantic/wisent)
 
+(defun cython-expand-tags (tag)
+  "Expand compound declarations found in TAG into separate tags.
+TAG contains compound declaration if the NAME part of the tag is a list.
+In cython, this can happen with `import' and `cdef' statements.
+Called as a `semantic-tag-expand-function'"
+  (cond
+   ((equal "cdef_vars" (car tag))
+	;; when more than 1 tag in :contents
+	(if (cdr (semantic-tag-get-attribute tag :contents))
+		(let* ((contents (semantic-tag-get-attribute tag :contents))
+			   (type (semantic-tag-type (car contents)))
+			   (rest (cdr contents))
+			   (expanded (list (car contents))))
+		  (while rest
+			(semantic-tag-put-attribute (car rest) :type type)
+			(setq expanded (cons (car rest) expanded))
+			(setq rest (cdr rest)))
+		  (nreverse expanded))
+	  ;; else return the only tag in cdef_vars list
+	  (semantic-tag-get-attribute tag :contents)))
+   (t
+	(let ((class (semantic-tag-class tag))
+		  (elts (semantic-tag-name tag))
+		  (expand nil))
+	  (cond
+	   ((and (eq class 'include) (listp elts))
+		(dolist (E elts)
+		  (setq expand (cons (semantic-tag-clone tag E) expand)))
+		(setq expand (nreverse expand))))))))
 
 (defun cython-decorated (decorators tag)
   "Augment decorated item tag with decorator attribute.

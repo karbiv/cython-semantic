@@ -1005,18 +1005,19 @@ yield_arg
 
 cdef
   : CDEF cdef_vars comma-opt
-    (progn $2)
+ ;; Expanded by `cython-reconstitute-cdef-vars'
+    (TAG "cdef_vars" 'temp :contents (nreverse $2))
   ;
 
 cdef_var
   : NAME NAME
-    (VARIABLE-TAG $2 $1 nil)
+	(VARIABLE-TAG $2 $1 nil)
   | NAME NAME ASSIGN test
-    (VARIABLE-TAG $2 $1 $4)
+	(VARIABLE-TAG $2 $1 $4)
   | NAME ASSIGN test
-    (VARIABLE-TAG $1 nil $3)
+	(VARIABLE-TAG $1 nil $3)
   | NAME
-    (VARIABLE-TAG $1 nil nil)
+	(VARIABLE-TAG $1 nil nil)
   | cdef_memoryview
   ;
 
@@ -1031,7 +1032,9 @@ cdef_memoryview
 
 cdef_vars
   : cdef_var
+	(list $1)
   | cdef_vars COMMA cdef_var
+	(cons $3 $1)
   ;
 
 cdef_block
