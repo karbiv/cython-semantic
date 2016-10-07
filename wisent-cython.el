@@ -26,6 +26,10 @@ Called as a `semantic-tag-expand-function'"
 		  (nreverse expanded))
 	  ;; else return the only tag in cdef_vars list
 	  (semantic-tag-get-attribute tag :contents)))
+   ;; ((equal "typedargslist" (car tag))
+   ;; 	(let* ((tag (semantic-tag-get-attribute tag :tag))
+   ;; 		   )
+   ;; 	  ))
    (t
 	(let ((class (semantic-tag-class tag))
 		  (elts (semantic-tag-name tag))

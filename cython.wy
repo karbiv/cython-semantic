@@ -330,9 +330,9 @@ typedargslist-opt
 
 typedargslist
   : tfpdef comma_rparen
-    (VARIABLE-TAG $1 nil nil)
+    (TAG "typedargslist" 'temp :tag (VARIABLE-TAG $1 nil nil))
   | tfpdef ASSIGN test comma_rparen
-    (VARIABLE-TAG $1 nil $3)
+    (TAG "typedargslist" 'temp :tag (VARIABLE-TAG $1 nil $3))
   | EXPONENT tfpdef comma_rparen
     (VARIABLE-TAG (concat $1 $2) nil nil)
   | MULT comma_rparen
