@@ -245,6 +245,42 @@ Perform the described task in `semantic-tag-components'."
 		   all-tags))
 		(t nil)))
 
+(defun semantic-stickyfunc-fetch-stickyline ()
+  "Make the function at the top of the current window sticky.
+Capture its function declaration, and place it in the header line.
+If there is no function, disable the header line."
+  (save-excursion
+    (goto-char (window-start (selected-window)))
+    (let ((noshow (bobp))
+		   (str
+			(progn
+			  (forward-line -1)
+			  (end-of-line)
+			  ;; Capture this function
+			  (let* ((tag (semantic-stickyfunc-tag-to-stick))
+					 (beginning nil))
+				;; TAG is nil if there was nothing of the appropriate type there.
+				(if (not tag)
+					;; Set it to be the text under the header line
+					(if noshow
+						""
+					  (if semantic-stickyfunc-show-only-functions-p ""
+						(buffer-substring (point-at-bol) (point-at-eol))))
+				  ;; Go get the first line of this tag.
+				  (setq beginning (goto-char (semantic-tag-start tag)))
+				  (search-forward ":" nil t)
+				  (buffer-substring beginning (point))))))
+		   (start 0))
+	  (setq str (replace-regexp-in-string "%" "%%" str))
+	  (setq str (replace-regexp-in-string "[ \n]+" " " str))
+      ;; In 21.4 (or 22.1) the header doesn't expand tabs.  Hmmmm.
+      ;; We should replace them here.
+      ;; This hack assumes that tabs are kept smartly at tab boundaries
+      ;; instead of in a tab boundary where it might only represent 4 spaces.
+      (while (string-match "\t" str start)
+		(setq str (replace-match "        " t t str 0)))
+      str)))
+
 (defun cython-check-jedi-package ()
   "Init Jedi.el package"
   (when (symbol-function 'jedi:setup)
