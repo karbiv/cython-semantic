@@ -191,8 +191,7 @@ what remains in the `wisent-python-indent-stack'."
 				      (include  . "Imports")
 				      (package  . "Package")
 				      (code . "Code")
-				      (cdef_extern . "Extern")))
-  )
+				      (cdef_extern . "Extern"))))
 
 (defun cython-end-of-defun ()
   (let ((curr-tag (semantic-current-tag)))
@@ -245,6 +244,7 @@ Perform the described task in `semantic-tag-components'."
 		   all-tags))
 		(t nil)))
 
+;; override
 (defun semantic-stickyfunc-fetch-stickyline ()
   "Make the function at the top of the current window sticky.
 Capture its function declaration, and place it in the header line.
@@ -280,6 +280,50 @@ If there is no function, disable the header line."
       (while (string-match "\t" str start)
 		(setq str (replace-match "        " t t str 0)))
       str)))
+
+;; override
+(defun semantic-highlight-func-highlight-current-tag (&optional disable)
+  "Highlight the current tag under point.
+Optional argument DISABLE will turn off any active highlight.
+If the current tag for this buffer is different from the last time this
+function was called, move the overlay."
+  (when (and (not (minibufferp))
+			 (or (not semantic-highlight-func-ct-overlay)
+				 (eq (semantic-overlay-buffer
+					  semantic-highlight-func-ct-overlay)
+					 (current-buffer))))
+    (let* ((tag (semantic-stickyfunc-tag-to-stick))
+		   (ol semantic-highlight-func-ct-overlay))
+      (when (not ol)
+		;; No overlay in this buffer.  Make one.
+		(setq ol (semantic-make-overlay (point-min) (point-min)
+										(current-buffer) t nil))
+		(semantic-overlay-put ol 'highlight-func t)
+		(semantic-overlay-put ol 'face 'semantic-highlight-func-current-tag-face)
+		(semantic-overlay-put ol 'keymap semantic-highlight-func-mode-map)
+		(semantic-overlay-put ol 'help-echo
+							  "Current Function : mouse-3 - Context menu")
+		(setq semantic-highlight-func-ct-overlay ol))
+
+      ;; TAG is nil if there was nothing of the appropriate type there.
+      (if (or (not tag) disable)
+		  ;; No tag, make the overlay go away.
+		  (progn
+			(semantic-overlay-put ol 'tag nil)
+			(semantic-overlay-move ol (point-min) (point-min) (current-buffer)))
+
+		;; We have a tag, if it is the same, do nothing.
+		(unless (eq (semantic-overlay-get ol 'tag) tag)
+		  (save-excursion
+			(goto-char (semantic-tag-start tag))
+			(search-forward (semantic-tag-name tag) nil t)
+			(semantic-overlay-put ol 'tag tag)
+			(let ((beg (point-at-bol))
+				  (end (progn
+						 (search-forward ":" nil t)
+						 (point))))
+			 (semantic-overlay-move ol beg end)))))))
+  nil)
 
 (defun cython-check-jedi-package ()
   "Init Jedi.el package"

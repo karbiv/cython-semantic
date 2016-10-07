@@ -3,7 +3,7 @@
 ;; Copyright (C) 2016 alex
 
 ;; Author: alex <alex@server.alex.local>
-;; Created: 2016-10-06 22:00:31+0300
+;; Created: 2016-10-07 05:13:49+0300
 ;; Keywords: syntax
 ;; X-RCS: $Id$
 
@@ -297,9 +297,7 @@
 		  (semantic-tag-new-variable $1 nil nil)))
 		((tfpdef ASSIGN test comma_rparen)
 		 (wisent-raw-tag
-		  (semantic-tag-new-variable
-		   (concat $1 $2 $3)
-		   nil nil)))
+		  (semantic-tag-new-variable $1 nil $3)))
 		((EXPONENT tfpdef comma_rparen)
 		 (wisent-raw-tag
 		  (semantic-tag-new-variable
@@ -858,7 +856,8 @@
 		  (semantic-tag-new-include $2 nil :def "cimport"))))
 	   (cdef_enum
 		((CDEF ENUM NAME COLON NEWLINE INDENT_BLOCK)
-		 nil))
+		 (wisent-raw-tag
+		  (semantic-tag-new-variable $3 $2 nil))))
 	   (with_nogil
 		((WITH NOGIL COLON NEWLINE INDENT_BLOCK)
 		 nil))

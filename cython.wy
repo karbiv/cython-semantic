@@ -332,7 +332,7 @@ typedargslist
   : tfpdef comma_rparen
     (VARIABLE-TAG $1 nil nil)
   | tfpdef ASSIGN test comma_rparen
-    (VARIABLE-TAG (concat $1 $2 $3) nil nil)
+    (VARIABLE-TAG $1 nil $3)
   | EXPONENT tfpdef comma_rparen
     (VARIABLE-TAG (concat $1 $2) nil nil)
   | MULT comma_rparen
@@ -1005,7 +1005,7 @@ yield_arg
 
 cdef
   : CDEF cdef_vars comma-opt
- ;; Expanded by `cython-reconstitute-cdef-vars'
+ ;; Expanded by `cython-expand-tags'
     (TAG "cdef_vars" 'temp :contents (nreverse $2))
   ;
 
@@ -1107,7 +1107,7 @@ cimport_from
 
 cdef_enum
   : CDEF ENUM NAME COLON NEWLINE INDENT_BLOCK
-    ()
+    (VARIABLE-TAG $3 $2 nil)
   ;
 
 with_nogil
