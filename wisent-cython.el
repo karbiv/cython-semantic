@@ -6,6 +6,16 @@
 
 (require 'semantic/wisent)
 
+(defun cython-typedargslist (tag)
+  "Typed parameters are a part(prefix) of a name in the grammar.
+Augment parameter tag by a type attribute."
+  (let ((parts (split-string (car tag))))
+	(if (cdr parts) ;; two parts, first is type
+		(progn
+		  (semantic-tag-put-attribute tag :type (car parts))
+		  (cons (cadr parts) (cdr tag)))
+	  tag)))
+
 (defun cython-expand-tags (tag)
   "Expand compound declarations found in TAG into separate tags.
 TAG contains compound declaration if the NAME part of the tag is a list.
@@ -26,10 +36,6 @@ Called as a `semantic-tag-expand-function'"
 		  (nreverse expanded))
 	  ;; else return the only tag in cdef_vars list
 	  (semantic-tag-get-attribute tag :contents)))
-   ;; ((equal "typedargslist" (car tag))
-   ;; 	(let* ((tag (semantic-tag-get-attribute tag :tag))
-   ;; 		   )
-   ;; 	  ))
    (t
 	(let ((class (semantic-tag-class tag))
 		  (elts (semantic-tag-name tag))
