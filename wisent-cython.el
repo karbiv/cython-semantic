@@ -6,12 +6,16 @@
 
 (require 'semantic/wisent)
 
-(defun cython-typedargslist (tag)
+(defun cython-typed-name (tag)
   "Typed parameters are a part(prefix) of a name in the grammar.
 Augment parameter tag by a type attribute."
   (let ((parts (split-string (car tag))))
 	(if (cdr parts) ;; two parts, first is type
 		(progn
+		  (let ((beg (nthcdr 5 tag)))
+			(setcar (nthcdr 5 tag)
+					(+ (car beg)
+					   (string-match (cadr parts) (car tag) (length (car parts))))))
 		  (semantic-tag-put-attribute tag :type (car parts))
 		  (cons (cadr parts) (cdr tag)))
 	  tag)))
@@ -26,9 +30,10 @@ Called as a `semantic-tag-expand-function'"
 	;; when more than 1 tag in :contents
 	(if (cdr (semantic-tag-get-attribute tag :contents))
 		(let* ((contents (semantic-tag-get-attribute tag :contents))
-			   (type (semantic-tag-type (car contents)))
+			   (typed-tag (cython-typed-name (car contents)))
+			   (type (semantic-tag-type typed-tag))
 			   (rest (cdr contents))
-			   (expanded (list (car contents))))
+			   (expanded (list typed-tag)))
 		  (while rest
 			(semantic-tag-put-attribute (car rest) :type type)
 			(setq expanded (cons (car rest) expanded))

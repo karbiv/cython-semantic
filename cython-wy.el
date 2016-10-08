@@ -3,7 +3,7 @@
 ;; Copyright (C) 2016 alex
 
 ;; Author: alex <alex@server.alex.local>
-;; Created: 2016-10-08 04:51:39+0300
+;; Created: 2016-10-08 07:15:37+0300
 ;; Keywords: syntax
 ;; X-RCS: $Id$
 
@@ -293,11 +293,11 @@
 		((typedargslist)))
 	   (typedargslist
 		((tfpdef comma_rparen)
-		 (cython-typedargslist
+		 (cython-typed-name
 		  (wisent-raw-tag
 		   (semantic-tag-new-variable $1 nil nil))))
 		((tfpdef ASSIGN test comma_rparen)
-		 (cython-typedargslist
+		 (cython-typed-name
 		  (wisent-raw-tag
 		   (semantic-tag-new-variable $1 nil $3))))
 		((EXPONENT tfpdef comma_rparen)
@@ -761,10 +761,14 @@
 	   (cdef_var
 		((NAME NAME)
 		 (wisent-raw-tag
-		  (semantic-tag-new-variable $2 $1 nil)))
+		  (semantic-tag-new-variable
+		   (concat $1 " " $2)
+		   nil nil)))
 		((NAME NAME ASSIGN test)
 		 (wisent-raw-tag
-		  (semantic-tag-new-variable $2 $1 $4)))
+		  (semantic-tag-new-variable
+		   (concat $1 " " $2)
+		   nil $4)))
 		((NAME ASSIGN test)
 		 (wisent-raw-tag
 		  (semantic-tag-new-variable $1 nil $3)))

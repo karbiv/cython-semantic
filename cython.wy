@@ -330,9 +330,9 @@ typedargslist-opt
 
 typedargslist
   : tfpdef comma_rparen
-    (cython-typedargslist (VARIABLE-TAG $1 nil nil))
+    (cython-typed-name (VARIABLE-TAG $1 nil nil))
   | tfpdef ASSIGN test comma_rparen
-    (cython-typedargslist (VARIABLE-TAG $1 nil $3))
+    (cython-typed-name (VARIABLE-TAG $1 nil $3))
   | EXPONENT tfpdef comma_rparen
     (VARIABLE-TAG (concat $1 $2) nil nil)
   | MULT comma_rparen
@@ -1010,10 +1010,12 @@ cdef
   ;
 
 cdef_var
+ ;; types here must be in tag's name(first NAME), type and overlay positions
+ ;; will be augmented in `cython-expand-tag' in wisent-cython.el
   : NAME NAME
-	(VARIABLE-TAG $2 $1 nil)
+	(VARIABLE-TAG (concat $1 " " $2) nil nil)
   | NAME NAME ASSIGN test
-	(VARIABLE-TAG $2 $1 $4)
+	(VARIABLE-TAG (concat $1 " " $2) nil $4)
   | NAME ASSIGN test
 	(VARIABLE-TAG $1 nil $3)
   | NAME
