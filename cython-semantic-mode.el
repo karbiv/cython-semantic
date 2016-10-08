@@ -255,11 +255,11 @@ Perform the described task in `semantic-tag-components'."
     (define-key jedi-mode-map (kbd "C-c p") 'jedi:goto-definition-pop-marker)))
 
 ;;;###autoload
-(define-derived-mode cython-semantic-mode python-mode "Cython"
+(define-derived-mode cython-semantic-mode python-mode "Cy"
   "Major mode for Cython development.
 
 \\{cython-semantic-mode-map}"
-  (semantic-mode 1)
+  (semantic-mode)
   (set (make-local-variable 'tab-width) 4)
   (font-lock-add-keywords nil cython-font-lock-keywords)
   (set (make-local-variable 'beginning-of-defun-function) #'cython-up-context)
@@ -268,16 +268,21 @@ Perform the described task in `semantic-tag-components'."
   (add-to-list 'semantic-new-buffer-setup-functions
 	       (cons 'cython-semantic-mode 'wisent-cython-default-setup))
   
-  (set (make-local-variable 'compile-command)
-       (format cython-default-compile-format (shell-quote-argument buffer-file-name)))
-  (add-to-list (make-local-variable 'compilation-finish-functions)
-               'cython-compilation-finish)
+  ;; (set (make-local-variable 'compile-command)
+  ;;      (format cython-default-compile-format (shell-quote-argument buffer-file-name)))
+  ;; (add-to-list (make-local-variable 'compilation-finish-functions)
+  ;;              'cython-compilation-finish)
   (set (make-local-variable 'add-log-current-defun-function)
        #'cython-semantic-current-defun)
   ;; Best 'go to definition' for python libraries
   (cython-check-jedi-package)
 
   ;; cython-semantic-features
-  (cython-if-global-semanticdb-minor-mode))
+  ;;(cython-if-global-semanticdb-minor-mode)
+  
+  (advice-add 'semantic-stickyfunc-fetch-stickyline
+			  :around #'cython-stickyfunc-fetch-stickyline)
+  (advice-add 'semantic-highlight-func-highlight-current-tag
+			  :around #'cython-highlight-func-highlight-current-tag))
 
 (provide 'cython-semantic-mode)

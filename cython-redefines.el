@@ -5,7 +5,8 @@
                           (or "def" "class" "cdef" "cpdef" "ctypedef" "if" "elif"
                               "else" "try" "except" "finally" "for" "while" "with")
                           symbol-end))
-      (defun       . ,(rx symbol-start (or "def" "class") symbol-end)))
+      (defun       . ,(rx symbol-start (or "def" "class") symbol-end))
+	  (symbol-name . ,(rx (any letter ?_) (* (any word ?_)))))
     "Additional Cython specific sexps for `cython-rx'")
 
   (defmacro cython-rx (&rest regexps)

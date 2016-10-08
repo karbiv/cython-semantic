@@ -30,33 +30,34 @@ If there is no function, disable the header line."
   (if (eq major-mode 'cython-semantic-mode)
 	  (save-excursion
 		(goto-char (window-start (selected-window)))
-		(let ((noshow (bobp))
-			  (str
-			   (progn
-				 (forward-line -1)
-				 (end-of-line)
-				 ;; Capture this function
-				 (let* ((tag (semantic-stickyfunc-tag-to-stick))
-						(beginning nil))
-				   ;; TAG is nil if there was nothing of the appropriate type there.
-				   (if (not tag)
-					   ;; Set it to be the text under the header line
-					   (if noshow
-						   ""
-						 (if semantic-stickyfunc-show-only-functions-p ""
-						   (buffer-substring (point-at-bol) (point-at-eol))))
-					 ;; Go get the first line of this tag.
-					 (setq beginning (goto-char (semantic-tag-start tag)))
-					 (search-forward ":" nil t)
-					 (buffer-substring beginning (point))))))
-			  (start 0))
+		(let* ((noshow (bobp))
+			   (str
+				(progn
+				  (forward-line -1)
+				  (end-of-line)
+				  ;; Capture this function
+				  (let* ((tag (semantic-stickyfunc-tag-to-stick))
+						 (beginning nil))
+					;; TAG is nil if there was nothing of the appropriate type there.
+					(if (not tag)
+						;; Set it to be the text under the header line
+						(if noshow
+							""
+						  (if semantic-stickyfunc-show-only-functions-p ""
+							(buffer-substring (point-at-bol) (point-at-eol))))
+					  ;; Go get the first line of this tag.
+					  (setq beginning (goto-char (semantic-tag-start tag)))
+					  (search-forward ":" nil t)
+					  ;; a fix for jit-lock mode when upper text in buffer is not fontified,
+					  ;; which happens when opening a buffer with the point scrolled down,
+					  ;; for example after `desktop-read'
+					  (jit-lock-fontify-now beginning (point))
+					  (buffer-substring beginning (point))))))
+			   (start 0))
 		  (setq str (replace-regexp-in-string "%" "%%" str))
 		  (setq str (replace-regexp-in-string "[ \n]+" " " str)) 
 		  str))
 	(apply orig args)))
-
-(advice-add 'semantic-stickyfunc-fetch-stickyline
-			:around #'cython-stickyfunc-fetch-stickyline)
 
 ;; override
 (defun cython-highlight-func-highlight-current-tag (orig &rest args)
@@ -104,8 +105,5 @@ function was called, move the overlay."
 				  (semantic-overlay-move ol beg end)))))))
 	(apply orig args))
   nil)
-
-(advice-add 'semantic-highlight-func-highlight-current-tag
-			:around #'cython-highlight-func-highlight-current-tag)
 
 (provide 'cython-semantic-features)
