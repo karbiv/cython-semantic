@@ -89,7 +89,14 @@ Recursive for multiline declarations(backslashed newline)."
 	  (incf num-parts)
 	  (push (cons left right) point-pairs))))
     (add-text-properties (caar point-pairs) (cdar point-pairs)
-			 `(face font-lock-function-name-face rear-sticky nil))))
+			 `(face font-lock-function-name-face rear-sticky nil))
+    (if (> num-parts 1) ; return type
+	(let ((left (car (cadr point-pairs)))
+	      (right (cdr (cadr point-pairs))))
+	  (unless (member (buffer-substring-no-properties left right)
+			  cython-font-lock-builtin-types-rx)
+	    (add-text-properties left right
+				 `(face font-lock-type-face rear-sticky nil)))))))
 
 
 (defvar cython-font-lock-builtin-types-rx
