@@ -2,15 +2,15 @@
 (defvar cython-enables-global-semanticdb-minor-mode t
   "If true, `cython-semantic-mode' turns on `global-semantic-minor-mode'.")
 
-(when (require 'semantic/util-modes)
-  (add-hook 'semantic-init-mode-hook #'cython-semantic-util-minor-modes))
+;; (when (require 'semantic/util-modes)
+;;   (add-hook 'semantic-init-mode-hook #'cython-semantic-util-minor-modes))
 
 (when (require 'semantic/decorate/mode)
   (add-hook 'semantic-init-mode-hook #'cython-semantic-decorate-mode))
 
-(defun cython-semantic-util-minor-modes ()
-  (semantic-stickyfunc-mode 1)
-  (semantic-highlight-func-mode 1))
+;; (defun cython-semantic-util-minor-modes ()
+;;   (semantic-stickyfunc-mode -1)
+;;   (semantic-highlight-func-mode 1))
 
 (defun cython-semantic-decorate-mode ()
   (semantic-decoration-mode 1))
@@ -55,7 +55,8 @@ If there is no function, disable the header line."
 					  (buffer-substring beginning (point))))))
 			   (start 0))
 		  (setq str (replace-regexp-in-string "%" "%%" str))
-		  (setq str (replace-regexp-in-string "[ \n]+" " " str)) 
+		  ;;(setq str (replace-regexp-in-string "[ \n]+" " " str))
+		  (setq str (replace-regexp-in-string "[\n]+" " " str)) 
 		  str))
 	(apply orig args)))
 

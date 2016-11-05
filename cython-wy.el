@@ -3,7 +3,7 @@
 ;; Copyright (C) 2016 alex
 
 ;; Author: alex <alex@server.alex.local>
-;; Created: 2016-10-08 07:15:37+0300
+;; Created: 2016-10-26 19:55:47+0300
 ;; Keywords: syntax
 ;; X-RCS: $Id$
 
@@ -265,12 +265,12 @@
 		((DEF NAME parameters RETURNTYPE test COLON suite)
 		 (cython-reconstitute-function-tag
 		  (wisent-raw-tag
-		   (semantic-tag-new-function $2 $5 $3 :def "def" :hint t))
+		   (semantic-tag-new-function $2 $5 $3 :def 'def :hint t))
 		  $7))
 		((DEF NAME parameters COLON suite)
 		 (cython-reconstitute-function-tag
 		  (wisent-raw-tag
-		   (semantic-tag-new-function $2 nil $3 :def "def"))
+		   (semantic-tag-new-function $2 nil $3 :def 'def))
 		  $5)))
 	   (parameters
 		((PAREN_BLOCK)
@@ -722,7 +722,7 @@
 		 (wisent-raw-tag
 		  (semantic-tag-new-type $2 $1 $5
 								 (cons $3 nil)
-								 :def "class"))))
+								 :def 'class))))
 	   (arglist
 		((PAREN_BLOCK)
 		 (let
@@ -801,17 +801,17 @@
 		((CDEF NAME NAME parameters cdef_except_opt COLON suite)
 		 (cython-reconstitute-function-tag
 		  (wisent-raw-tag
-		   (semantic-tag-new-function $3 $2 $4 :def "cdef"))
+		   (semantic-tag-new-function $3 $2 $4 :def 'cdef))
 		  $7))
 		((CDEF NAME parameters cdef_except_opt COLON suite)
 		 (cython-reconstitute-function-tag
 		  (wisent-raw-tag
-		   (semantic-tag-new-function $2 nil $3 :def "cdef"))
+		   (semantic-tag-new-function $2 nil $3 :def 'cdef))
 		  $6))
 		((CDEF INLINE NAME NAME parameters cdef_except_opt COLON suite)
 		 (cython-reconstitute-function-tag
 		  (wisent-raw-tag
-		   (semantic-tag-new-function $4 $3 $5 :def "cdef" :inline t))
+		   (semantic-tag-new-function $4 $3 $5 :def 'cdef :inline t))
 		  $8)))
 	   (cdef_except_opt
 		(nil)
@@ -825,7 +825,7 @@
 		  (wisent-raw-tag
 		   (semantic-tag-new-type $3 $2 $6
 								  (cons $4 nil)
-								  :def "cdef class")))))
+								  :def 'cdef-class)))))
 	   (cython_property
 		((PROPERTY NAME COLON suite)
 		 (cython-reconstitute-function-tag
@@ -836,12 +836,12 @@
 		((CPDEF NAME parameters COLON suite)
 		 (cython-reconstitute-function-tag
 		  (wisent-raw-tag
-		   (semantic-tag-new-function $2 nil $3 :def "cpdef"))
+		   (semantic-tag-new-function $2 nil $3 :def 'cpdef))
 		  $5))
 		((CPDEF NAME NAME parameters COLON suite)
 		 (cython-reconstitute-function-tag
 		  (wisent-raw-tag
-		   (semantic-tag-new-function $3 $2 $4 :def "cpdef"))
+		   (semantic-tag-new-function $3 $2 $4 :def 'cpdef))
 		  $6)))
 	   (cimport_stmt
 		((cimport_name))
@@ -849,17 +849,17 @@
 	   (cimport_name
 		((CIMPORT dotted_as_names)
 		 (wisent-raw-tag
-		  (semantic-tag-new-include $2 nil :def "cimport"))))
+		  (semantic-tag-new-include $2 nil :def 'cimport))))
 	   (cimport_from
 		((FROM from-what CIMPORT MULT)
 		 (wisent-raw-tag
-		  (semantic-tag-new-include $2 nil :def "cimport")))
+		  (semantic-tag-new-include $2 nil :def 'cimport)))
 		((FROM from-what CIMPORT PAREN_BLOCK)
 		 (wisent-raw-tag
-		  (semantic-tag-new-include $2 nil :def "cimport")))
+		  (semantic-tag-new-include $2 nil :def 'cimport)))
 		((FROM from-what CIMPORT import_as_names)
 		 (wisent-raw-tag
-		  (semantic-tag-new-include $2 nil :def "cimport"))))
+		  (semantic-tag-new-include $2 nil :def 'cimport))))
 	   (cdef_enum
 		((CDEF ENUM NAME COLON NEWLINE INDENT_BLOCK)
 		 (wisent-raw-tag

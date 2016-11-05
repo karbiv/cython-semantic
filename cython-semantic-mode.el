@@ -24,6 +24,7 @@
     map)
   "Keymap used in `cython-mode'.")
 
+
 (defun cython-compile ()
   "Compile the file via Cython."
   (interactive)
@@ -34,13 +35,136 @@
       (add-to-list (make-local-variable 'compilation-finish-functions)
                    'cython-compilation-finish))))
 
+
 (defun cython-compilation-finish (buffer how)
   "Called when Cython compilation finishes."
   ;; XXX could annotate source here
   )
 
+
+;;; Font Lock functions.
+;; These functions must be robust, they are called by Font Lock.
+
+
+(defun cython-font-lock-pre-anchor ()
+  (let ((m-beg (match-beginning 1)) (m-end (match-end 1)))
+    ;; propertize matched cdef or cpdef
+    (add-text-properties m-beg m-end
+			 `(face font-lock-keyword-face rear-sticky nil))))
+
+
+(defun cython-collect-cdef ()
+  "Advance point excursion to a right end of a cdef/cpdef declaration to be highlighted.
+Returns declaration variant as a self-evaluated symbol,
+`:assignment', `:block', `:function', `:simple'.
+Recursive for multiline declarations(backslashed newline)."
+  (search-forward-regexp "\\([^(=#\n]*\\)" (point-max) t)
+  (let ((matched (match-string-no-properties 1)))
+    (if (not (string-empty-p matched))
+	(let ((last-char (string-to-char (substring matched -1))))
+	  (cond
+	   ((char-equal ?= (char-after))
+	    :assignment)
+	   ((char-equal ?: last-char)
+	    :block)
+	   ((char-equal ?\\ last-char) ; escaped newline, recurse for next lines
+	    (forward-char)
+	    (cython-collect-cdef))
+	   ((char-equal ?\( (char-after)) ; func args open paren
+	    ;;TODO highlight typed func arguments
+	    ;; highlight only func type and name for now
+	    :function)
+	   (t ; ends on newline
+	    :simple))))))
+
+
+(defun cython-propertize-function (beg end)
+  (goto-char beg)
+  (let ((num-parts 0) (point-pairs nil))
+    (while (< (point) end)
+      (let (left right)
+	(skip-chars-forward "^a-zA-Z0-9_" end) (setq left (point))
+	(skip-chars-forward "a-zA-Z0-9_" end) (setq right (point))
+	(when (not (equal left right))
+	  (incf num-parts)
+	  (push (cons left right) point-pairs))))
+    (add-text-properties (caar point-pairs) (cdar point-pairs)
+			 `(face font-lock-function-name-face rear-sticky nil))))
+
+
+(defvar cython-font-lock-builtin-types-rx
+  '("object" "dict" "list" "tuple"
+    ;; basic c type names
+    "void" "char" "int" "float" "double" "bint"
+    ;; longness/signed/constness
+    "signed" "unsigned" "long" "short"
+    ;; special basic c types
+    "size_t" "Py_ssize_t" "Py_UNICODE" "Py_UCS4" "ssize_t" "ptrdiff_t"))
+
+
+(defun cython-propertize-type (beg)
+  (let (left right)
+    (goto-char beg)
+    (skip-chars-forward "^a-zA-Z0-9_" end) (setq left (point))
+    (skip-chars-forward "a-zA-Z0-9_" end) (setq right (point))
+    (unless (member (buffer-substring-no-properties left right)
+		    cython-font-lock-builtin-types-rx)
+      (add-text-properties left right
+			   `(face font-lock-type-face rear-sticky nil)))))
+
+
+(defun cython-find-type (beg end)
+  (goto-char beg)
+  (if (search-forward "," end t)
+      (let ((parts (split-string (buffer-substring-no-properties beg end) "," t))) 
+	(if (> (length parts) 1)
+	    (let ((head (split-string (car parts) "[ \f\t\n\r\v]+" t)))
+	      (if (> (length head) 1)
+		  (cython-propertize-type beg)))))
+    ;; else, decl without comma
+    (let ((head (split-string (buffer-substring-no-properties beg end) "[ \f\t\n\r\v]+" t)))
+      (if (> (length head) 1)
+	  (cython-propertize-type beg)))))
+
+
+(defun cython-propertize-cdef (anchor beg end decl-variant)
+  "Highlight Cython types for cdef and cpdef.
+BEG and END are buffer points of declaration, starting after ANCHOR.
+ANCHOR is 'cdef' or 'cpdef'.
+DECL-VARIANT is one of :symbols returned by `cython-collect-cdef'."
+  (save-excursion
+    (if (equal anchor "cdef")
+	(cond
+	 ((eq :function decl-variant)
+	  (cython-propertize-function beg end))
+	 ;;font-lock-type-face
+	 ((eq :simple decl-variant)
+	  ;;(cython-propertize-simple-decl beg end)
+	  (cython-find-type beg end))
+	 ((eq :assignment decl-variant)
+	  (cython-find-type beg end)
+	  ))
+      ;; else for "cpdef"
+      (when (eq :function decl-variant)
+	(cython-propertize-function beg end)))))
+
+
+(defun cython-font-lock-cdef-anchor (limit)
+  "For `cython-font-lock-keywords', anchored function.
+Must return `nil' when done."
+  (let ((beg (point)) 
+	(anchor (match-string-no-properties 1)) ; anchor is "cdef" or "cpdef"
+	(decl-variant (cython-collect-cdef))) ; advances point
+    (cython-propertize-cdef anchor beg (point) decl-variant))
+  ;; return nil for the Font Lock to proceed, `font-lock-fontify-anchored-keywords'.
+  nil)
+
+
 (defvar cython-font-lock-keywords
-  `(;; ctypedef statement: "ctypedef (...type... alias)?"
+  `(;; anchored-highlighter for cdef and cpdef
+    (,(rx symbol-start (group (regexp "c\\(?:p\\)?def")))
+     (cython-font-lock-cdef-anchor (cython-font-lock-pre-anchor) nil nil))
+    ;; ctypedef statement: "ctypedef (...type... alias)?"
     (,(rx
        ;; keyword itself
        symbol-start (group "ctypedef")
@@ -55,7 +179,7 @@
      (2 font-lock-type-face nil 'noerror))
     ;; new keywords in Cython language
     (,(rx symbol-start
-          (or "by" "cdef" "cimport" "cpdef"
+          (or "by" "cimport"
               "extern" "gil" "include" "nogil" "property" "public"
               "readonly" "DEF" "IF" "ELIF" "ELSE"
               "new" "del" "cppclass" "namespace" "const"
@@ -68,14 +192,13 @@
     (,(rx symbol-start "except?") . font-lock-keyword-face)
     ;; C and Python types (highlight as builtins)
     (,(rx symbol-start
-          (or
-           "object" "dict" "list"
-           ;; basic c type names
-           "void" "char" "int" "float" "double" "bint"
-           ;; longness/signed/constness
-           "signed" "unsigned" "long" "short"
-           ;; special basic c types
-           "size_t" "Py_ssize_t" "Py_UNICODE" "Py_UCS4" "ssize_t" "ptrdiff_t")
+          (or "object" "dict" "list" "tuple"
+	      ;; basic c type names
+	      "void" "char" "int" "float" "double" "bint"
+	      ;; longness/signed/constness
+	      "signed" "unsigned" "long" "short"
+	      ;; special basic c types
+	      "size_t" "Py_ssize_t" "Py_UNICODE" "Py_UCS4" "ssize_t" "ptrdiff_t")
           symbol-end)
      . font-lock-builtin-face)
     (,(rx symbol-start "NULL" symbol-end)
@@ -232,17 +355,17 @@ go up past the bounds of that tag."
   "Return a list of components for TAG.
 Perform the described task in `semantic-tag-components'."
   (cond ((semantic-tag-of-class-p tag 'type)
-		 (semantic-tag-type-members tag))
-		((semantic-tag-of-class-p tag 'function)
-		 (let ((all-tags (semantic-tag-function-arguments tag))
-			   (suite (semantic-tag-get-attribute tag :suite)))
-		   (while suite
-			 (when (and (semantic-tag-p (car suite))
-						(member (semantic-tag-class (car suite)) '(function type)))
-			   (setq all-tags (cons (car suite) all-tags)))
-			 (setq suite (cdr suite)))
-		   all-tags))
-		(t nil)))
+	 (semantic-tag-type-members tag))
+	((semantic-tag-of-class-p tag 'function)
+	 (let ((all-tags (semantic-tag-function-arguments tag))
+	       (suite (semantic-tag-get-attribute tag :suite)))
+	   (while suite
+	     (when (and (semantic-tag-p (car suite))
+			(member (semantic-tag-class (car suite)) '(function type)))
+	       (setq all-tags (cons (car suite) all-tags)))
+	     (setq suite (cdr suite)))
+	   all-tags))
+	(t nil)))
 
 (defun cython-check-jedi-package ()
   "Init Jedi.el package"
@@ -258,8 +381,9 @@ Perform the described task in `semantic-tag-components'."
 (define-derived-mode cython-semantic-mode python-mode "Cy"
   "Major mode for Cython development.
 
-\\{cython-semantic-mode-map}"
+\\{cython-semantic-mode-map}"  
   (semantic-mode)
+
   (set (make-local-variable 'tab-width) 4)
   (font-lock-add-keywords nil cython-font-lock-keywords)
   (set (make-local-variable 'beginning-of-defun-function) #'cython-up-context)
@@ -278,11 +402,10 @@ Perform the described task in `semantic-tag-components'."
   (cython-check-jedi-package)
 
   ;; cython-semantic-features
-  ;;(cython-if-global-semanticdb-minor-mode)
   
   (advice-add 'semantic-stickyfunc-fetch-stickyline
-			  :around #'cython-stickyfunc-fetch-stickyline)
+	      :around #'cython-stickyfunc-fetch-stickyline)
   (advice-add 'semantic-highlight-func-highlight-current-tag
-			  :around #'cython-highlight-func-highlight-current-tag))
+	      :around #'cython-highlight-func-highlight-current-tag))
 
 (provide 'cython-semantic-mode)

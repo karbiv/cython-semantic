@@ -24,7 +24,8 @@ Augment parameter tag by a type attribute."
   "Expand compound declarations found in TAG into separate tags.
 TAG contains compound declaration if the NAME part of the tag is a list.
 In cython, this can happen with `import' and `cdef' statements.
-Called as a `semantic-tag-expand-function'"
+Called as a `semantic-tag-expand-function'.
+Must return a list of tag(s)."
   (cond
    ((equal "cdef_vars" (car tag))
 	;; when more than 1 tag in :contents
@@ -49,7 +50,27 @@ Called as a `semantic-tag-expand-function'"
 	   ((and (eq class 'include) (listp elts))
 		(dolist (E elts)
 		  (setq expand (cons (semantic-tag-clone tag E) expand)))
-		(setq expand (nreverse expand))))))))
+		(setq expand (nreverse expand)))
+	   ;; font lock for Cython functions
+	   ;; ((and (eq class 'function))
+	   ;; 	(let* ((ret-type (semantic-tag-get-attribute tag :type))
+	   ;; 		   (start-point (elt (semantic-tag-overlay tag) 0))
+	   ;; 		   (end-point (1- (save-excursion (goto-char start-point) (search-forward "(" ))))
+	   ;; 		   ;; to remove font-lock props expanded by `front-sticky'
+	   ;; 		   (end-func (elt (semantic-tag-overlay tag) 1)))
+	   ;; 	  (when ret-type
+	   ;; 		(let* ((ret-type-end (save-excursion (goto-char start-point) (search-forward ret-type)))
+	   ;; 			   (ret-type-start (- ret-type-end (length ret-type))))
+	   ;; 		  (add-text-properties ret-type-start ret-type-end
+	   ;; 							   `(font-lock-face ,font-lock-type-face front-sticky t))))
+	   ;; 	  ;; function name
+	   ;; 	  (add-text-properties (- end-point (length (car tag))) end-point
+	   ;; 						   `(font-lock-face ,font-lock-function-name-face front-sticky t))
+	   ;; 	  ;; remove properties expanded by `front-sticky' off func name
+	   ;; 	  (remove-text-properties end-point end-func
+	   ;; 							  `(font-lock-face front-sticky rear-sticky))
+	   ;; 	  (list tag)))
+	   )))))
 
 (defun cython-decorated (decorators tag)
   "Augment decorated item tag with decorator attribute.

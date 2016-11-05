@@ -290,10 +290,10 @@ decorated-item
 funcdef
   : DEF NAME parameters RETURNTYPE test COLON suite
     (cython-reconstitute-function-tag
-     (FUNCTION-TAG $2 $5 $3 :def "def" :hint t) $7)
+     (FUNCTION-TAG $2 $5 $3 :def 'def :hint t) $7)
   | DEF NAME parameters COLON suite
     (cython-reconstitute-function-tag
-     (FUNCTION-TAG $2 nil $3 :def "def") $5)
+     (FUNCTION-TAG $2 nil $3 :def 'def) $5)
   ;
 
 ;;------------------------------------------------------
@@ -954,7 +954,7 @@ classdef
     (TYPE-TAG $2 $1
               $5                ;; Members
               (cons $3 nil)     ;; (SUPERCLASSES . INTERFACES)
-              :def "class")
+              :def 'class)
   ;
 
 arglist
@@ -1047,14 +1047,14 @@ cdef_block
 cdef_func
   : CDEF NAME NAME parameters cdef_except_opt COLON suite
     (cython-reconstitute-function-tag
-     (FUNCTION-TAG $3 $2 $4 :def "cdef") $7)
+     (FUNCTION-TAG $3 $2 $4 :def 'cdef) $7)
  ;; cdef func can be without return type
   | CDEF NAME parameters cdef_except_opt COLON suite
     (cython-reconstitute-function-tag
-     (FUNCTION-TAG $2 nil $3 :def "cdef") $6)
+     (FUNCTION-TAG $2 nil $3 :def 'cdef) $6)
   | CDEF INLINE NAME NAME parameters cdef_except_opt COLON suite
     (cython-reconstitute-function-tag
-     (FUNCTION-TAG $4 $3 $5 :def "cdef" :inline t) $8)
+     (FUNCTION-TAG $4 $3 $5 :def 'cdef :inline t) $8)
   ;
 
 cdef_except_opt
@@ -1071,7 +1071,7 @@ cdef_class
      (TYPE-TAG $3 $2
                $6                ;; Members
                (cons $4 nil)     ;; (SUPERCLASSES . INTERFACES)
-               :def "cdef class"))
+               :def 'cdef-class))
   ;
 
 cython_property
@@ -1082,10 +1082,10 @@ cython_property
 cpdef
   : CPDEF NAME parameters COLON suite
     (cython-reconstitute-function-tag
-     (FUNCTION-TAG $2 nil $3 :def "cpdef") $5)
+     (FUNCTION-TAG $2 nil $3 :def 'cpdef) $5)
   | CPDEF NAME NAME parameters COLON suite
     (cython-reconstitute-function-tag
-     (FUNCTION-TAG $3 $2 $4 :def "cpdef") $6)
+     (FUNCTION-TAG $3 $2 $4 :def 'cpdef) $6)
   ;
 
 cimport_stmt
@@ -1095,16 +1095,16 @@ cimport_stmt
 
 cimport_name
   : CIMPORT dotted_as_names
-    (INCLUDE-TAG $2 nil :def "cimport")
+    (INCLUDE-TAG $2 nil :def 'cimport)
   ;
 
 cimport_from
   : FROM from-what CIMPORT MULT
-    (INCLUDE-TAG $2 nil :def "cimport")
+    (INCLUDE-TAG $2 nil :def 'cimport)
   | FROM from-what CIMPORT PAREN_BLOCK
-    (INCLUDE-TAG $2 nil :def "cimport")
+    (INCLUDE-TAG $2 nil :def 'cimport)
   | FROM from-what CIMPORT import_as_names
-    (INCLUDE-TAG $2 nil :def "cimport")
+    (INCLUDE-TAG $2 nil :def 'cimport)
   ;
 
 cdef_enum
