@@ -71,20 +71,19 @@ Recursive for multiline declarations(backslashed newline)."
 	    (forward-char)
 	    (cython-collect-cdef))
 	   ((char-equal ?\( (char-after)) ; func args open paren
-	    ;;TODO highlight typed func arguments
-	    ;; highlight only func type and name for now
 	    :function)
 	   (t ; ends on newline
 	    :simple))))))
 
 
 (defun cython-propertize-function (beg end)
+  "Highlight function name and return type.
+Parameter types must be highlighted in wisent parser."
   (goto-char beg)
   (let ((num-parts 0) (point-pairs nil))
     (while (< (point) end)
-      (let (left right)
-	(skip-chars-forward "^a-zA-Z0-9_" end) (setq left (point))
-	(skip-chars-forward "a-zA-Z0-9_" end) (setq right (point))
+      (let ((left (progn (skip-chars-forward "^a-zA-Z0-9_" end) (point)))
+	    (right (progn (skip-chars-forward "a-zA-Z0-9_" end) (point))))
 	(when (not (equal left right))
 	  (incf num-parts)
 	  (push (cons left right) point-pairs))))
@@ -93,13 +92,11 @@ Recursive for multiline declarations(backslashed newline)."
     (if (> num-parts 1) ; return type
 	(let ((left (car (cadr point-pairs)))
 	      (right (cdr (cadr point-pairs))))
-	  (unless (member (buffer-substring-no-properties left right)
-			  cython-font-lock-builtin-types-rx)
-	    (add-text-properties left right
-				 `(face font-lock-type-face rear-sticky nil)))))))
+	  (unless (member (buffer-substring-no-properties left right) cython-builtin-types)
+	    (add-text-properties left right `(face font-lock-type-face rear-sticky nil)))))))
 
 
-(defvar cython-font-lock-builtin-types-rx
+(defvar cython-builtin-types
   '("object" "dict" "list" "tuple"
     ;; basic c type names
     "void" "char" "int" "float" "double" "bint"
@@ -109,15 +106,12 @@ Recursive for multiline declarations(backslashed newline)."
     "size_t" "Py_ssize_t" "Py_UNICODE" "Py_UCS4" "ssize_t" "ptrdiff_t"))
 
 
-(defun cython-propertize-type (beg)
-  (let (left right)
-    (goto-char beg)
-    (skip-chars-forward "^a-zA-Z0-9_" end) (setq left (point))
-    (skip-chars-forward "a-zA-Z0-9_" end) (setq right (point))
-    (unless (member (buffer-substring-no-properties left right)
-		    cython-font-lock-builtin-types-rx)
-      (add-text-properties left right
-			   `(face font-lock-type-face rear-sticky nil)))))
+(defun cython-propertize-type (beg end)
+  (goto-char beg)
+  (let ((left (progn (skip-chars-forward "^a-zA-Z0-9_" end) (point)))
+	(right (progn (skip-chars-forward "a-zA-Z0-9_" end) (point))))
+    (unless (member (buffer-substring-no-properties left right) cython-builtin-types)
+      (add-text-properties left right `(face font-lock-type-face rear-sticky nil)))))
 
 
 (defun cython-find-type (beg end)
@@ -127,11 +121,11 @@ Recursive for multiline declarations(backslashed newline)."
 	(if (> (length parts) 1)
 	    (let ((head (split-string (car parts) "[ \f\t\n\r\v]+" t)))
 	      (if (> (length head) 1)
-		  (cython-propertize-type beg)))))
+		  (cython-propertize-type beg end)))))
     ;; else, decl without comma
     (let ((head (split-string (buffer-substring-no-properties beg end) "[ \f\t\n\r\v]+" t)))
       (if (> (length head) 1)
-	  (cython-propertize-type beg)))))
+	  (cython-propertize-type beg end)))))
 
 
 (defun cython-propertize-cdef (anchor beg end decl-variant)
@@ -184,6 +178,8 @@ Must return `nil' when done."
             (* space) (opt "#" (* nonl)) line-end))
      (1 font-lock-keyword-face)
      (2 font-lock-type-face nil 'noerror))
+    ;; YIELD designates generators, make it distinct from other keywords in source
+    (,(rx symbol-start "yield" symbol-end) . font-lock-function-name-face)
     ;; new keywords in Cython language
     (,(rx symbol-start
           (or "by" "cimport"
