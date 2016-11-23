@@ -10,15 +10,23 @@
   "Typed parameters are a part(prefix) of a name in the grammar.
 Augment parameter tag by a type attribute."
   (let ((parts (split-string (car tag))))
-	(if (cdr parts) ;; two parts, first is type
-		(progn
-		  (let ((beg (nthcdr 5 tag)))
-			(setcar (nthcdr 5 tag)
-					(+ (car beg)
-					   (string-match (cadr parts) (car tag) (length (car parts))))))
-		  (semantic-tag-put-attribute tag :type (car parts))
-		  (cons (cadr parts) (cdr tag)))
-	  tag)))
+    (if (cdr parts) ;; two parts, first is a type
+	(progn
+	  (let ((beg (nthcdr 5 tag)))
+	    ;; Propertize type
+	    (save-excursion 
+	      (goto-char (car beg)) 
+	      (forward-word)
+	      (unless (member (buffer-substring-no-properties (car beg) (point)) cython-builtin-types) 
+		(add-text-properties (car beg) (point)
+				     `(font-lock-face font-lock-type-face rear-sticky nil))))
+	    (setcar (nthcdr 5 tag)
+		    (+ (car beg)
+		       (string-match (cadr parts) (car tag) (length (car parts))))))
+	  (semantic-tag-put-attribute tag :type (car parts))
+	  (cons (cadr parts) (cdr tag)))
+      tag)))
+
 
 (defun cython-expand-tags (tag)
   "Expand compound declarations found in TAG into separate tags.
@@ -28,49 +36,30 @@ Called as a `semantic-tag-expand-function'.
 Must return a list of tag(s)."
   (cond
    ((equal "cdef_vars" (car tag))
-	;; when more than 1 tag in :contents
-	(if (cdr (semantic-tag-get-attribute tag :contents))
-		(let* ((contents (semantic-tag-get-attribute tag :contents))
-			   (typed-tag (cython-typed-name (car contents)))
-			   (type (semantic-tag-type typed-tag))
-			   (rest (cdr contents))
-			   (expanded (list typed-tag)))
-		  (while rest
-			(semantic-tag-put-attribute (car rest) :type type)
-			(setq expanded (cons (car rest) expanded))
-			(setq rest (cdr rest)))
-		  (nreverse expanded))
-	  ;; else return the only tag in cdef_vars list
-	  (semantic-tag-get-attribute tag :contents)))
+    ;; when more than 1 tag in :contents
+    (if (cdr (semantic-tag-get-attribute tag :contents))
+	(let* ((contents (semantic-tag-get-attribute tag :contents))
+	       (typed-tag (cython-typed-name (car contents)))
+	       (type (semantic-tag-type typed-tag))
+	       (rest (cdr contents))
+	       (expanded (list typed-tag)))
+	  (while rest
+	    (semantic-tag-put-attribute (car rest) :type type)
+	    (setq expanded (cons (car rest) expanded))
+	    (setq rest (cdr rest)))
+	  (nreverse expanded))
+      ;; else return the only tag in cdef_vars list
+      (semantic-tag-get-attribute tag :contents)))
    (t
-	(let ((class (semantic-tag-class tag))
-		  (elts (semantic-tag-name tag))
-		  (expand nil))
-	  (cond
-	   ((and (eq class 'include) (listp elts))
-		(dolist (E elts)
-		  (setq expand (cons (semantic-tag-clone tag E) expand)))
-		(setq expand (nreverse expand)))
-	   ;; font lock for Cython functions
-	   ;; ((and (eq class 'function))
-	   ;; 	(let* ((ret-type (semantic-tag-get-attribute tag :type))
-	   ;; 		   (start-point (elt (semantic-tag-overlay tag) 0))
-	   ;; 		   (end-point (1- (save-excursion (goto-char start-point) (search-forward "(" ))))
-	   ;; 		   ;; to remove font-lock props expanded by `front-sticky'
-	   ;; 		   (end-func (elt (semantic-tag-overlay tag) 1)))
-	   ;; 	  (when ret-type
-	   ;; 		(let* ((ret-type-end (save-excursion (goto-char start-point) (search-forward ret-type)))
-	   ;; 			   (ret-type-start (- ret-type-end (length ret-type))))
-	   ;; 		  (add-text-properties ret-type-start ret-type-end
-	   ;; 							   `(font-lock-face ,font-lock-type-face front-sticky t))))
-	   ;; 	  ;; function name
-	   ;; 	  (add-text-properties (- end-point (length (car tag))) end-point
-	   ;; 						   `(font-lock-face ,font-lock-function-name-face front-sticky t))
-	   ;; 	  ;; remove properties expanded by `front-sticky' off func name
-	   ;; 	  (remove-text-properties end-point end-func
-	   ;; 							  `(font-lock-face front-sticky rear-sticky))
-	   ;; 	  (list tag)))
-	   )))))
+    (let ((class (semantic-tag-class tag))
+	  (elts (semantic-tag-name tag))
+	  (expand nil))
+      (cond
+       ((and (eq class 'include) (listp elts))
+	(dolist (E elts)
+	  (setq expand (cons (semantic-tag-clone tag E) expand)))
+	(setq expand (nreverse expand))))))))
+
 
 (defun cython-decorated (decorators tag)
   "Augment decorated item tag with decorator attribute.
@@ -97,6 +86,7 @@ TAG - decorated item(class or function)."
   "Move a docstring from TAG's members into its :documentation attribute.
 Set attributes for constructors, special, private and static methods.
 TAG SUITE"
+  ;;(print (semantic-tag-get-attribute tag :arguments))
   ;; Analyze first statement to see whether it is a documentation
   ;; string.
   (let ((first-statement (car suite)))
@@ -209,6 +199,7 @@ TAG SUITE"
           (string-match
            (rx (seq string-start (or "\"\"\"" "'''") (0+ anything) (or "\"\"\"" "'''") string-end))
            name)))))
+
 
 (provide 'wisent-cython)
 

@@ -290,10 +290,10 @@ decorated-item
 funcdef
   : DEF NAME parameters RETURNTYPE test COLON suite
     (cython-reconstitute-function-tag
-     (FUNCTION-TAG $2 $5 $3 :def 'def :hint t) $7)
+     (FUNCTION-TAG $2 $5 (semantic-tag-get-attribute (car $3) :args) :def 'def :hint t) $7)
   | DEF NAME parameters COLON suite
     (cython-reconstitute-function-tag
-     (FUNCTION-TAG $2 nil $3 :def 'def) $5)
+     (FUNCTION-TAG $2 nil (semantic-tag-get-attribute (car $3) :args) :def 'def) $5)
   ;
 
 ;;------------------------------------------------------
@@ -308,7 +308,8 @@ parameters
 typed_function_parameters
   : LPAREN RPAREN ()
   | LPAREN ()
-  | typedargslist-opt
+  | typedargs-opt
+    (TAG "args" 'args :args $1)
   | RPAREN ()
   ;
 
@@ -319,16 +320,23 @@ typed_function_parameters
 ;; Also C style type parameters added to the "tfpdef" rule
 ;;----------------------------------------------------------
 
-;; typedargslist: (tfpdef ['=' test] (',' tfpdef ['=' test])* [','
+;; typedargs: (tfpdef ['=' test] (',' tfpdef ['=' test])* [','
 ;;        ['*' [tfpdef] (',' tfpdef ['=' test])* [',' '**' tfpdef] | '**' tfpdef]]
 ;;       | '*' [tfpdef] (',' tfpdef ['=' test])* [',' '**' tfpdef] | '**' tfpdef)
 
-typedargslist-opt
+typedargs-opt
   : ;;EMPTY
-  | typedargslist
+  | typedargs
   ;
 
-typedargslist
+typedargs
+  : typedarg
+    (list $1)
+  | typedargs typedarg
+    (cons $2 $1)
+  ;
+
+typedarg
   : tfpdef comma_rparen
     (cython-typed-name (VARIABLE-TAG $1 nil nil))
   | tfpdef ASSIGN test comma_rparen
@@ -348,7 +356,7 @@ comma_rparen
 tfpdef
   : NAME NAME ;; C style typed parameter
     (concat $1 " " $2)
-  | NAME COLON test
+  | NAME COLON test ;; Python style type hint
     (concat $1 $2 $3)
   | NAME
  ;; cython params
@@ -1013,13 +1021,13 @@ cdef_var
  ;; types here must be in tag's name(first NAME), type and overlay positions
  ;; will be augmented in `cython-expand-tag' in wisent-cython.el
   : NAME NAME
-	(VARIABLE-TAG (concat $1 " " $2) nil nil)
+    (VARIABLE-TAG (concat $1 " " $2) nil nil)
   | NAME NAME ASSIGN test
-	(VARIABLE-TAG (concat $1 " " $2) nil $4)
+    (VARIABLE-TAG (concat $1 " " $2) nil $4)
   | NAME ASSIGN test
-	(VARIABLE-TAG $1 nil $3)
+    (VARIABLE-TAG $1 nil $3)
   | NAME
-	(VARIABLE-TAG $1 nil nil)
+    (VARIABLE-TAG $1 nil nil)
   | cdef_memoryview
   ;
 
@@ -1034,9 +1042,9 @@ cdef_memoryview
 
 cdef_vars
   : cdef_var
-	(list $1)
+    (list $1)
   | cdef_vars COMMA cdef_var
-	(cons $3 $1)
+    (cons $3 $1)
   ;
 
 cdef_block
@@ -1047,14 +1055,16 @@ cdef_block
 cdef_func
   : CDEF NAME NAME parameters cdef_except_opt COLON suite
     (cython-reconstitute-function-tag
-     (FUNCTION-TAG $3 $2 $4 :def 'cdef) $7)
+     (FUNCTION-TAG $3 $2 (semantic-tag-get-attribute (car $4) :args) :def 'cdef) $7)
  ;; cdef func can be without return type
   | CDEF NAME parameters cdef_except_opt COLON suite
     (cython-reconstitute-function-tag
-     (FUNCTION-TAG $2 nil $3 :def 'cdef) $6)
+     (FUNCTION-TAG $2 nil (semantic-tag-get-attribute (car $3) :args) :def 'cdef)
+     ;;(FUNCTION-TAG $2 nil $3 :def 'cdef)
+     $6)
   | CDEF INLINE NAME NAME parameters cdef_except_opt COLON suite
     (cython-reconstitute-function-tag
-     (FUNCTION-TAG $4 $3 $5 :def 'cdef :inline t) $8)
+     (FUNCTION-TAG $4 $3 (semantic-tag-get-attribute (car $5) :args) :def 'cdef :inline t) $8)
   ;
 
 cdef_except_opt
@@ -1082,10 +1092,10 @@ cython_property
 cpdef
   : CPDEF NAME parameters COLON suite
     (cython-reconstitute-function-tag
-     (FUNCTION-TAG $2 nil $3 :def 'cpdef) $5)
+     (FUNCTION-TAG $2 nil (semantic-tag-get-attribute (car $3) :args) :def 'cpdef) $5)
   | CPDEF NAME NAME parameters COLON suite
     (cython-reconstitute-function-tag
-     (FUNCTION-TAG $3 $2 $4 :def 'cpdef) $6)
+     (FUNCTION-TAG $3 $2 (semantic-tag-get-attribute (car $4) :args) :def 'cpdef) $6)
   ;
 
 cimport_stmt

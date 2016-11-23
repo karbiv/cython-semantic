@@ -229,7 +229,7 @@ Must return `nil' when done."
        (semantic-lex-push-token
 	(semantic-lex-token key (match-beginning 0) (match-end 0)))))))
 
-;; overriden to fix a bug in return ("\\", "/") 
+;; overriden to fix a bug in a code such: return ("\\", "/") 
 (defconst wisent-python-string-re
   (rx
    (opt (any "uU")) (opt (any "rR"))
